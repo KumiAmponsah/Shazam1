@@ -1,0 +1,68 @@
+import os
+import uuid
+from pydub import AudioSegment
+import psycopg2
+from datetime import datetime, timezone
+import hashlib
+
+# Database connection details
+dbname = "postgres"
+user = "postgres.odmahancvvtqqbiagszq"
+password = "I394YX7cNnQ9mA0M"
+host = "aws-0-eu-west-2.pooler.supabase.com"
+port = "6543"
+
+
+def connect_db():
+    conn = psycopg2.connect(
+        dbname=dbname,
+        user=user,
+        password=password,
+        host=host,
+        port=port
+    )
+    return conn
+
+
+def generate_fingerprint(audio_file_path):
+    # Load the audio file
+    audio = AudioSegment.from_file(audio_file_path)
+
+    # Get raw audio data
+    audio_data = audio.raw_data
+
+    # Generate a hash as a simple fingerprint
+    fingerprint = hashlib.sha256(audio_data).digest()
+
+    return fingerprint
+
+
+def store_fingerprint(song_id, fingerprint):
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    id = str(uuid.uuid4())
+    song_id = str(song_id)
+    created_at = datetime.now(timezone.utc)
+
+    insert_query = """
+    INSERT INTO fingerprints (id, song_id, fingerprint_data, created_at)
+    VALUES (%s, %s, %s, %s)
+    """
+
+    cursor.execute(insert_query, (id, song_id, fingerprint, created_at))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+
+def main(audio_file_path, song_id):
+    fingerprint = generate_fingerprint(audio_file_path)
+    store_fingerprint(song_id, fingerprint)
+
+
+if __name__ == "__main__":
+    audio_file_path = r"C:\Users\cypri\Desktop\dejavu-master\mp3\Sean-Fournier--Falling-For-You.mp3"  # Update this path
+    song_id = uuid.uuid4()  # This should be your song's unique identifier
+    main(audio_file_path, song_id)
